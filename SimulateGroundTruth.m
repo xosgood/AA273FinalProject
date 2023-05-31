@@ -29,7 +29,12 @@ u_F = zeros(p, N);
 v_follower_max_thresh = 5;
 omega_follower_max_thresh = 0.05;
 
-K_p = [.1; .01] * 10 * sin(5*tspan); % proportional gain for control loop for follower
+% proportional gain for control loop for follower
+%K_p = [.1; .01] * 10 * sin(5*tspan);
+K_cycle = 1000;
+K_p1 = [0.001; 0.01]; % good
+K_p2 = [0.1; 0.01]; % bad
+
 
 % creating vectors to hold data
 x_L = zeros(n_L, N); % true leader state, through simulating dynamics
@@ -68,8 +73,13 @@ for i = 2:N
     e_psi = e(3);
     e_rho = norm(e(1:2));
     Beta = atan2(e_y, e_x);
-    u_F(:,i) = K_p(:,i) .* [e_rho;
-                            e_psi - Beta];
+    if mod(i, 2 * K_cycle) <= K_cycle
+        K_p = K_p1;
+    else
+        K_p = K_p2;
+    end
+    u_F(:,i) = K_p .* [e_rho;
+                       e_psi - Beta];
     u_F(1,i) = sign(u_F(1,i)) * min(abs(u_F(1,i)), v_follower_max_thresh);
     u_F(2,i) = sign(u_F(2,i)) * min(abs(u_F(2,i)), omega_follower_max_thresh);
     
