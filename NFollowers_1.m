@@ -8,13 +8,13 @@ rng(273);
 a = 1.96; % for 95% confidence interval
 
 n_L = 3; % number of dimensions of state of leader
-num_followers = 2; % number of follower birds
+num_followers = 4; % number of follower birds
 n_F = 3 * num_followers; % number of dimensions of state of follower
 p = 2 * num_followers; % number of dimensions of control input
 m = 3 * num_followers; % number of dimensions of measurement (leader's measurement of follower)
 
 dt = 0.1;
-t_f = 100;
+t_f = 50;
 tspan = 0:dt:t_f;
 N = length(tspan);
 
@@ -48,8 +48,14 @@ Sigma = zeros(n_F, n_F, N); % covariance estimate
 
 % initial conditions
 x_L(:,1) = zeros(n_L, 1);
-x_F_des(:,1) = [-10; -15; deg2rad(0); -10; 15; deg2rad(0)];
-x_F_act(:,1) = [-20; -25; deg2rad(45); -20; 25; deg2rad(-45)];
+x_F_des(:,1) = [-10; -15; deg2rad(0);
+                -10; 15; deg2rad(0);
+                -20; -25; deg2rad(0);
+                -20; 25; deg2rad(0)];
+x_F_act(:,1) = [-15; -20; deg2rad(45);
+                -15; 20; deg2rad(-45);
+                -25; -30; deg2rad(30);
+                -25; 30; deg2rad(-30);];
 mu(:,1) = -ones(n_F, 1);
 Sigma(:,:,1) = eye(n_F);
 
@@ -79,7 +85,7 @@ for i = 2:N
         e_rho = norm(e(1:2));
         Beta = atan2(e_y, e_x);
         e_for_controller(p_iter:p_iter+1) = [e_rho;
-                                   e_psi - Beta];
+                                             e_psi - Beta];
         p_iter = p_iter + 2;
     end
     if mod(i, 2 * K_cycle) <= K_cycle
@@ -135,11 +141,15 @@ title("Leader bird trajectory");
 % plot follower
 figure; grid on; hold on;
 plot(x_L(1,:), x_L(2,:))
-plot(x_F_des_global(1,:), x_F_des_global(2,:), '.');
-plot(x_F_act_global(1,:), x_F_act_global(2,:), 'o');
+for i = 1:3:n_F
+    plot(x_F_des_global(i,:), x_F_des_global(i+1,:), '.');
+    plot(x_F_act_global(i,:), x_F_act_global(i+1,:), 'o');
+end
 xlabel("x"); ylabel("y");
 title("Leader bird trajectory");
-legend("Leader","Follower desired","Follower actual");
+legend("Leader","Follower 1 desired","Follower 1 actual", ...
+    "Follower 2 desired","Follower 2 actual", "Follower 3 desired","Follower 3 actual", ...
+    "Follower 4 desired","Follower 4 actual");
 
 % plot follower and measurements
 figure; grid on; hold on;
