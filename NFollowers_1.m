@@ -65,7 +65,7 @@ for i = 2:N
     
     % follower dynamics
     w = mvnrnd(zeros(n_F,1), Q)'; % process noise
-    x_F_des(:,i) = f(x_F_des(:,i-1), [0; 0], dt); % desired follower dynamics propagation
+    x_F_des(:,i) = f(x_F_des(:,i-1), zeros(p, 1), dt); % desired follower dynamics propagation
     x_F_act(:,i) = f(x_F_act(:,i-1), u_F(:,i-1), dt) + w; % actual follower dynamics propagation
     
     e_for_controller = zeros(p, 1);
@@ -110,8 +110,8 @@ end
 
 avg_loop_time = mean(loop_times)
 
-x_F_des_global = x_L + x_F_des;
-x_F_act_global = x_L + x_F_act;
+x_F_des_global = repmat(x_L, num_followers, 1) + x_F_des;
+x_F_act_global = repmat(x_L, num_followers, 1) + x_F_act;
 
 % find confidence intervals around relative state
 tspan_conf = [tspan tspan(end:-1:1)];
@@ -181,18 +181,29 @@ legend("True \psi", "Estimated \psi", "95% confidence interval on estimated \psi
 
 %% functions
 % nonlinear dynamics (treating as non-holonomic robot)
-function x_new = f(x_old, u, dt) % TODO: UPDATE TO ACCOMODATE N FOLLOWERS
+function x_new = f(x_old, u, dt)
     x_new = zeros(size(x_old));
-    x_new(1) = x_old(1) + dt * u(1) * cos(x_old(3));
-    x_new(2) = x_old(2) + dt * u(1) * sin(x_old(3));
-    x_new(3) = x_old(3) + dt * u(2);
+    j = 1;
+    for i = 1:3:length(x_old)
+        v = u(j); % velocity command
+        w = u(j+1); % angular velocity command
+        x_new(i) = x_old(i) + dt * v * cos(x_old(i+2));
+        x_new(i+1) = x_old(i+1) + dt * v * sin(x_old(i+2));
+        x_new(i+2) = x_old(i+2) + dt * w;
+        j = j + 2;
+    end
 end
 
 % generate Jacobian for dynamics
-function A = DynamicsJacobian(x, u, dt) % TODO: UPDATE TO ACCOMODATE N FOLLOWERS
+function A = DynamicsJacobian(x, u, dt)
     A = eye(length(x));
-    A(1,3) = -dt * u(1) * sin(x(3));
-    A(2,3) = dt * u(1) * cos(x(3));
+    j = 1;
+    for i = 1:3:length(x)
+        v = u(j);
+        A(i,i+2) = -dt * v * sin(x(i+2));
+        A(i+1,i+2) = dt * v * cos(x(i+2));
+        j = j + 2;
+    end
 end
 
 % nonlinear measurement (range and bearing)
@@ -207,11 +218,15 @@ function y = g(x)
 end
 
 % generate Jacobian for measurements
-function C = MeasurementJacobian(x) % TODO: UPDATE TO ACCOMODATE N FOLLOWERS
-    p = x(1:2); % extract position
-    pos_norm = norm(p); % TODO: Guard against pos_norm=0 -> division by zero
-    C_row1 = [p(1) / pos_norm, p(2) / pos_norm, 0]; % range
-    C_rows23 = [-p * p' / pos_norm^3 + eye(2) / pos_norm, zeros(2,1)]; % bearing (unit vector)
-    C = [C_row1; C_rows23];
+function C = MeasurementJacobian(x)
+    C = zeros(length(x));
+    for i = 1:3:length(x)
+        p = x(i:i+1); % extract position
+        pos_norm = norm(p); % TODO: Guard against pos_norm=0 -> division by zero
+        C_row1 = [p(1) / pos_norm, p(2) / pos_norm, 0]; % range
+        C_rows23 = [-p * p' / pos_norm^3 + eye(2) / pos_norm, zeros(2,1)]; % bearing (unit vector)
+        C(i,i:i+2) = C_row1;
+        C(i+1:i+2,i:i+2) = C_rows23;
+    end
 end
 
