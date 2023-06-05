@@ -35,7 +35,6 @@ K_cycle = 1000;
 K_p1 = [0.001; 0.01]; % good
 K_p2 = [0.1; 0.01]; % bad
 
-
 % creating vectors to hold data
 x_L = zeros(n_L, N); % true leader state, through simulating dynamics
 x_F_des = zeros(n_F, N); % desired follower state, through simulating dynamics
