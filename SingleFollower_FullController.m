@@ -17,24 +17,23 @@ t_f = 50;
 tspan = 0:dt:t_f;
 N = length(tspan);
 
-Q_abs = 0.001 * eye(n_L);
-Q = 0.01 * eye(n_F);
-R = 2 * diag([0.1, 0.01, 0.01]);
+Q_abs = 0.01 * dt * eye(n_L);
+Q = 0.1 * dt * eye(n_F);
+R = diag([0.25, 0.33, 0.33]);
 
 v = 10 * ones(1,N); % velocity command
 omega = sin(tspan/3); % angular velocity command
 u_L = [v; omega];
 
 u_F = zeros(p, N);
-v_follower_max_thresh = 10;
-omega_follower_max_thresh = 0.5;
+v_follower_max_thresh = 2.5;
+omega_follower_max_thresh = 0.05;
 
 % proportional gain for control loop for follower
 %K_p = [.1; .01] * 10 * sin(5*tspan);
 K_cycle = 1000;
-% K_p1 = [0.001; 0.001]; % good
-% K_p2 = [0.1; 0.01]; % bad
-K_p = [100; 100]; K_p1 = K_p; K_p2 = K_p;
+K_p1 = [0.001; 0.001]; % good
+K_p2 = [0.1; 0.01]; % bad
 
 % derivative gain for control loop for follower
 K_d = [1; 1];
@@ -53,8 +52,8 @@ Sigma = zeros(n_F, n_F, N); % covariance estimate
 
 % initial conditions
 x_L(:,1) = zeros(n_L, 1);
-x_F_des(:,1) = [-10; -15; deg2rad(0)];
-x_F_act(:,1) = [-20; -25; deg2rad(45)];
+x_F_des(:,1) = [-2.83; -2.9682; deg2rad(0)];
+x_F_act(:,1) = [-3; -3; deg2rad(45)];
 mu(:,1) = -ones(n_F, 1);
 Sigma(:,:,1) = eye(n_F);
 
@@ -89,11 +88,11 @@ for i = 2:N
     e_psi = e(3);
     e_rho = norm(e(1:2));
     Beta = atan2(e_y, e_x);
-%     if mod(i, 2 * K_cycle) <= K_cycle
-%         K_p = K_p1;
-%     else
-%         K_p = K_p2;
-%     end
+    if mod(i, 2 * K_cycle) <= K_cycle
+        K_p = K_p1;
+    else
+        K_p = K_p2;
+    end
     
     % D control
     e_diff = e - e_prev;
@@ -121,8 +120,8 @@ for i = 2:N
     %%% EKF
     t1 = tic;
     
-    A = DynamicsJacobian(mu(:,i-1), u_F(:,i-1), dt); % Jacobian for dynamics
-    mu(:,i) = f(mu(:,i-1), u_F(:,i-1), dt); % mean predict
+    A = DynamicsJacobian(mu(:,i-1), [0; 0], dt); % Jacobian for dynamics
+    mu(:,i) = f(mu(:,i-1), [0; 0], dt); % mean predict
     Sigma(:,:,i) = A * Sigma(:,:,i-1) * A' + Q; % covariance predict
     C = MeasurementJacobian(mu(:,i)); % Jacobian for measurements
     K = Sigma(:,:,i) * C' / (C * Sigma(:,:,i) * C' + R); % Kalman gain
