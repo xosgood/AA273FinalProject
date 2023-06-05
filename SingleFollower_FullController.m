@@ -39,7 +39,7 @@ K_p2 = [0.1; 0.01]; % bad
 K_d = [1; 1];
 
 % time delay
-t_delay = 0.5;
+t_delay = 0.3;
 iter_delay = round(t_delay / dt);
 
 % creating vectors to hold data
@@ -135,6 +135,7 @@ avg_loop_time = mean(loop_times)
 
 x_F_des_global = x_L + x_F_des;
 x_F_act_global = x_L + x_F_act;
+mu_global = x_L + mu;
 
 % find confidence intervals around relative state
 tspan_conf = [tspan tspan(end:-1:1)];
@@ -145,24 +146,25 @@ mu_conf = [mu(1,:) + a * sqrt(reshape(Sigma(1,1,:), 1,length(Sigma(1,1,:)))), mu
 
 %% plotting
 % plot leader
-figure; grid on; hold on;
-plot(tspan, x_L(1,:), tspan, x_L(2,:), tspan, x_L(3,:))
-xlabel("time (s)"); ylabel("pose");
-title("Leader bird pose over time");
-legend("x","y","\theta");
-figure; grid on; hold on;
-plot(x_L(1,:), x_L(2,:));
-xlabel("x"); ylabel("y");
-title("Leader bird trajectory");
+% figure; grid on; hold on;
+% plot(tspan, x_L(1,:), tspan, x_L(2,:), tspan, x_L(3,:))
+% xlabel("time (s)"); ylabel("pose");
+% title("Leader bird pose over time");
+% legend("x","y","\theta");
+% figure; grid on; hold on;
+% plot(x_L(1,:), x_L(2,:));
+% xlabel("x"); ylabel("y");
+% title("Leader bird trajectory");
 
 % plot follower
 figure; grid on; hold on;
 plot(x_L(1,:), x_L(2,:))
 plot(x_F_des_global(1,:), x_F_des_global(2,:), '.');
 plot(x_F_act_global(1,:), x_F_act_global(2,:), 'o');
+plot(mu_global(1,:), mu_global(2,:), '-', "LineWidth", 1.2);
 xlabel("x"); ylabel("y");
 title("Leader bird trajectory");
-legend("Leader","Follower desired","Follower actual");
+legend("Leader","Follower desired", "Follower actual", "Follower EKF estimate");
 
 % plot follower and measurements
 figure; grid on; hold on;
