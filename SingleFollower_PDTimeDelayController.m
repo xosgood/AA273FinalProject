@@ -13,12 +13,12 @@ p = 2; % number of dimensions of control input
 m = 3; % number of dimensions of measurement (leader's measurement of follower)
 
 dt = 0.1;
-t_f = 500;
+t_f = 50;
 tspan = 0:dt:t_f;
 N = length(tspan);
 
 Q_abs = 0.001 * eye(n_L);
-Q = 1 * eye(n_F);
+Q = 0.01 * eye(n_F);
 R = 2 * diag([0.1, 0.01, 0.01]);
 
 v = 10 * ones(1,N); % velocity command

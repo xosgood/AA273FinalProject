@@ -13,20 +13,20 @@ p = 2; % number of dimensions of control input
 m = 3; % number of dimensions of measurement (leader's measurement of follower)
 
 dt = 0.1;
-t_f = 100;
+t_f = 50;
 tspan = 0:dt:t_f;
 N = length(tspan);
 
-Q_abs = 0.001 * eye(n_L);
-Q = 1 * eye(n_F);
-R = 2 * diag([0.1, 0.01, 0.01]);
+Q_abs = 0.01 * dt * eye(n_L);
+Q = 0.1 * dt * eye(n_F);
+R = diag([0.25, 0.33, 0.33]);
 
 v = 10 * ones(1,N); % velocity command
 omega = sin(tspan/3); % angular velocity command
 u_L = [v; omega];
 
 u_F = zeros(p, N);
-v_follower_max_thresh = 5;
+v_follower_max_thresh = 2.5;
 omega_follower_max_thresh = 0.05;
 
 % proportional gain for control loop for follower
