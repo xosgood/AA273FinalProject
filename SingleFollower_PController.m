@@ -1,6 +1,6 @@
 % 5/22/23
 % AA273 Final Project
-% Simulate our 2D leader bird dynamics and 
+% Simulate our 2D leader bird dynamics with P controller
 clc; clear; close all;
 
 rng(273);
