@@ -181,7 +181,7 @@ legend("True \psi", "Estimated \psi", "95% confidence interval on estimated \psi
 
 %% functions
 % nonlinear dynamics (treating as non-holonomic robot)
-function x_new = f(x_old, u, dt)
+function x_new = f(x_old, u, dt) % TODO: UPDATE TO ACCOMODATE N FOLLOWERS
     x_new = zeros(size(x_old));
     x_new(1) = x_old(1) + dt * u(1) * cos(x_old(3));
     x_new(2) = x_old(2) + dt * u(1) * sin(x_old(3));
@@ -189,7 +189,7 @@ function x_new = f(x_old, u, dt)
 end
 
 % generate Jacobian for dynamics
-function A = DynamicsJacobian(x, u, dt)
+function A = DynamicsJacobian(x, u, dt) % TODO: UPDATE TO ACCOMODATE N FOLLOWERS
     A = eye(length(x));
     A(1,3) = -dt * u(1) * sin(x(3));
     A(2,3) = dt * u(1) * cos(x(3));
@@ -197,13 +197,17 @@ end
 
 % nonlinear measurement (range and bearing)
 function y = g(x)
-    rho = norm(x(1:2)); % range
-    unit = x(1:2) / rho; % bearing
-    y = [rho; unit];
+    y = zeros(length(x), 1);
+    for i = 1:3:length(x)
+        rho = norm(x(i:i+1)); % range
+        unit = x(i:i+1) / rho; % bearing
+        y(i) = rho; 
+        y(i+1:i+2) = unit;
+    end
 end
 
 % generate Jacobian for measurements
-function C = MeasurementJacobian(x)
+function C = MeasurementJacobian(x) % TODO: UPDATE TO ACCOMODATE N FOLLOWERS
     p = x(1:2); % extract position
     pos_norm = norm(p); % TODO: Guard against pos_norm=0 -> division by zero
     C_row1 = [p(1) / pos_norm, p(2) / pos_norm, 0]; % range
