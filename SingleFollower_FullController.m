@@ -5,21 +5,36 @@ clc; clear; close all;
 
 rng(273);
 
+global MEAS;
+MEAS = "BOTH";
+
 a = 1.96; % for 95% confidence interval
 
 n_L = 3; % number of dimensions of state of leader
 n_F = 3; % number of dimensions of state of follower
 p = 2; % number of dimensions of control input
-m = 3; % number of dimensions of measurement (leader's measurement of follower)
 
 dt = 0.1;
-t_f = 50;
+t_f = 500;
 tspan = 0:dt:t_f;
 N = length(tspan);
 
 Q_abs = 0.01 * dt * eye(n_L);
 Q = 0.1 * dt * eye(n_F);
-R = diag([0.25, 0.33, 0.33]);
+
+if MEAS == "RANGE"
+    m = 1; % number of dimensions of measurement (leader's measurement of follower)
+    R = diag(0.25);
+elseif MEAS == "BEARING"
+    m = 2; % number of dimensions of measurement (leader's measurement of follower)
+    R = diag([0.33, 0.33]);
+elseif MEAS == "BOTH"
+    m = 3; % number of dimensions of measurement (leader's measurement of follower)
+    R = diag([0.25, 0.33, 0.33]);
+else
+    error("Not allowed 'MEAS' value")
+end
+
 
 v = 10 * ones(1,N); % velocity command
 omega = sin(tspan/3); % angular velocity command
@@ -53,7 +68,7 @@ Sigma = zeros(n_F, n_F, N); % covariance estimate
 % initial conditions
 x_L(:,1) = zeros(n_L, 1);
 x_F_des(:,1) = [-2.83; -2.9682; deg2rad(0)];
-x_F_act(:,1) = [-3; -3; deg2rad(45)];
+x_F_act(:,1) = [-3; -3; deg2rad(180)];
 mu(:,1) = -ones(n_F, 1);
 Sigma(:,:,1) = eye(n_F);
 
@@ -108,7 +123,7 @@ for i = 2:N
                        e_psi - Beta] ...
              + K_d .* [e_diff_rho;
                        e_diff_psi - Beta_diff];
-                   
+    
     
     u_F(1,i) = sign(u_F(1,i)) * min(abs(u_F(1,i)), v_follower_max_thresh);
     u_F(2,i) = sign(u_F(2,i)) * min(abs(u_F(2,i)), omega_follower_max_thresh);
@@ -165,43 +180,44 @@ plot(mu_global(1,:), mu_global(2,:), '-', "LineWidth", 1.2);
 xlabel("x"); ylabel("y");
 title("Leader bird trajectory");
 legend("Leader","Follower desired", "Follower actual", "Follower EKF estimate");
+exportgraphics(gcf,'BirdTraj.png','Resolution',300);
 
 % plot follower and measurements
-figure; grid on; hold on;
-plot(tspan, x_F_des(1,:), tspan, x_F_des(2,:));
-plot(tspan, x_F_act(1,:), tspan, x_F_act(2,:));
-plot(tspan(2:end), y(1,:) .* y(2,:), "o", tspan(2:end), y(1,:) .* y(3,:), "o");
-xlabel("time (s)"); ylabel("pose");
-title("Follower bird true relative state over time");
-legend("Desired x", "Desired y", "Actual x", "Actual y", "Measured x", "Measured y");
+% figure; grid on; hold on;
+% plot(tspan, x_F_des(1,:), tspan, x_F_des(2,:), tspan, x_F_des(3,:));
+% plot(tspan, x_F_act(1,:), tspan, x_F_act(2,:), tspan, x_F_act(3,:));
+% %plot(tspan(2:end), y(1,:) .* y(2,:), "o", tspan(2:end), y(1,:) .* y(3,:), "o");
+% xlabel("time (s)"); ylabel("pose");
+% title("Follower bird true relative state over time");
+% legend("Desired x", "Desired y", "Desired \psi", "Actual x", "Actual y", "Actual \psi", "Measured x", "Measured y");
 
 % plot follower true state and estimated state
 figure;
 sgtitle("Follower bird true & estimated relative state over time \n with 95% confidence interval shaded in");
-subplot(2,1,1); grid on; hold on;
-plot(tspan, x_F_act(1,:), tspan, x_F_act(2,:));
-plot(tspan, mu(1,:), tspan, mu(2,:));
-p = fill(tspan_conf, mu_conf(1,:),'yellow');
+subplot(2,1,1);
+title("relative x vs time");
+xlabel("time (s)"); ylabel("x");
+grid on; hold on;
+plot(tspan, x_F_act(1,:));
+plot(tspan, mu(1,:));
+p = fill(tspan_conf, mu_conf(1,:), 'm');
 %p.FaceColor = [0.8 0.8 1];
 p.FaceAlpha = 0.25;
 p.EdgeColor = 'none';
-p = fill(tspan_conf, mu_conf(2,:),'m');
+legend("True", "Estimated", "95% confidence interval");
+subplot(2,1,2);
+grid on; hold on;
+title("relative y vs time");
+xlabel("time (s)"); ylabel("y");
+plot(tspan, x_F_act(2,:));
+plot(tspan, mu(2,:));
+p = fill(tspan_conf, mu_conf(2,:), 'm');
 %p.FaceColor = [1 0.8 0.8];
 p.FaceAlpha = 0.25;
 p.EdgeColor = 'none';
 sgtitle("Follower bird true and estimated relative position over time");
-xlabel("time (s)"); ylabel("pose");
-legend("True x", "True y", "Estimated x", "Estimated y", "95% confidence interval on estimated x", "95% confidence interval on estimated y");
-subplot(2,1,2); grid on; hold on;
-plot(tspan, x_F_act(3,:));
-plot(tspan, mu(3,:));
-p = fill(tspan_conf, mu_conf(3,:),'r');
-%p.FaceColor = [0.8 0.8 1];
-p.FaceAlpha = 0.25;
-p.EdgeColor = 'none';
-xlabel("time (s)"); ylabel("relative heading [rad]");
-title("Follower bird true and estimated relative heading over time");
-legend("True \psi", "Estimated \psi", "95% confidence interval on estimated \psi");
+legend("True", "Estimated", "95% confidence interval");
+exportgraphics(gcf,'EKFEstimate.png','Resolution',300);
 
 
 %% functions
@@ -222,17 +238,42 @@ end
 
 % nonlinear measurement (range and bearing)
 function y = g(x)
-    rho = norm(x(1:2)); % range
-    unit = x(1:2) / rho; % bearing
-    y = [rho; unit];
+    global MEAS;
+    if MEAS == "RANGE"
+        rho = norm(x(1:2)); % range
+        y = rho;
+    elseif MEAS == "BEARING"
+        rho = norm(x(1:2));
+        unit = x(1:2) / rho; % bearing
+        y = unit;
+    elseif MEAS == "BOTH"
+        rho = norm(x(1:2)); % range
+        unit = x(1:2) / rho; % bearing
+        y = [rho; unit];
+    else
+        error("Not allowed 'MEAS' value")
+    end
 end
 
 % generate Jacobian for measurements
 function C = MeasurementJacobian(x)
+    global MEAS;
+    
     p = x(1:2); % extract position
     pos_norm = norm(p); % TODO: Guard against pos_norm=0 -> division by zero
-    C_row1 = [p(1) / pos_norm, p(2) / pos_norm, 0]; % range
-    C_rows23 = [-p * p' / pos_norm^3 + eye(2) / pos_norm, zeros(2,1)]; % bearing (unit vector)
-    C = [C_row1; C_rows23];
+    
+    if MEAS == "RANGE"
+        C_row1 = [p(1) / pos_norm, p(2) / pos_norm, 0]; % range
+        C = C_row1;
+    elseif MEAS == "BEARING"
+        C_rows23 = [-p * p' / pos_norm^3 + eye(2) / pos_norm, zeros(2,1)]; % bearing (unit vector)
+        C = C_rows23;
+    elseif MEAS == "BOTH"
+        C_row1 = [p(1) / pos_norm, p(2) / pos_norm, 0]; % range
+        C_rows23 = [-p * p' / pos_norm^3 + eye(2) / pos_norm, zeros(2,1)]; % bearing (unit vector)
+        C = [C_row1; C_rows23];
+    else
+        error("Not allowed 'MEAS' value")
+    end
 end
 
