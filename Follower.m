@@ -1,10 +1,10 @@
 %Follower Dynamics Class
-classdef Follower
+classdef Follower < handle
 
     properties 
         init_condD double {mustBeNonNan} = [0; 0; 0;] % Desired x, y, heading angle
         init_condA double {mustBeNonNan} = [0; 0; 0;] % Desired x, y, heading angle
-        dt         double {mustBePositive} = 0.1
+        dt         double {mustBePositive} = 0.1      % time step
         x_F_act    % Actual Follower State Values (Noisy and Full of Error)
         x_F_des    % Desired Follower State Values (Essentially Offset and Pinned to Leader Dynamics
         u_F        % Controller Commands
@@ -55,53 +55,50 @@ classdef Follower
             obj.x_F_des(:, 1) = obj.init_condD;
             obj.x_F_act(:, 1) = obj.init_condA;
         end
-        
-        %TEMPORARY WILL INCLUDE IN DIFFERENT SCRIPT IN FUTURE
-        function objn = simulateFollower(obj1)
-           
-            for i = 2:obj1.numsteps
-                obj1.curr_ind = i;
-                obj1.desiredDynamics();   
-                obj1.generateControl();
-                obj1.curr_ind = obj1.curr_ind +1;
-            end
-            objn = obj1;
+         
+        function desiredDynamics(obj)   
+            t = obj.curr_ind;
+            u = [0; 0]; %obj.u_F(:, t);
+            obj.x_F_des(1, t) = obj.x_F_des(1, t-1) + obj.dt * u(1) * cos(obj.x_F_des(3, t-1));
+            obj.x_F_des(2, t) = obj.x_F_des(2, t-1) + obj.dt * u(1) * sin(obj.x_F_des(3, t-1));
+            obj.x_F_des(3, t) = obj.x_F_des(3, t-1) + obj.dt * u(2);
         end
         
-        function obj = desiredDynamics(obj)   
+        function actualDynamics(obj, w_rel)
             t = obj.curr_ind;
-            u = obj.u_F(:, t);
-            obj.x_F_des(1, t+1) = obj.x_F_des(1, t) + obj.dt * u(1) * cos(obj.x_F_des(1, t));
-            obj.x_F_des(2, t+1) = obj.x_F_des(2, t) + obj.dt * u(1) * sin(obj.x_F_des(1, t));
-            obj.x_F_des(3, t+1) = obj.x_F_des(3, t) + obj.dt * u(2);
-        end
-        
-        function obj = actualDynamics(obj)
-            t = obj.curr_ind;
-            u = obj.u_F(:, t);
-            obj.x_F_des(1, t+1) = obj.x_F_des(1, t) + obj.dt * u(1) * cos(obj.x_F_des(1, t));
-            obj.x_F_des(2, t+1) = obj.x_F_des(2, t) + obj.dt * u(1) * sin(obj.x_F_des(1, t));
-            obj.x_F_des(3, t+1) = obj.x_F_des(3, t) + obj.dt * u(2);
-            
-            w_rel = mvnrnd(zeros(obj.n_F,1), obj.Qtrue)';
-            obj.x_F_des(:, t+1) = obj.x_F_des(:, t+1) + w_rel;
-            
+            u = obj.u_F(:, t-1);
+            obj.x_F_act(1, t) = obj.x_F_act(1, t-1) + obj.dt * u(1) * cos(obj.x_F_act(3, t-1));
+            obj.x_F_act(2, t) = obj.x_F_act(2, t-1) + obj.dt * u(1) * sin(obj.x_F_act(3, t-1));
+            obj.x_F_act(3, t) = obj.x_F_act(3, t-1) + obj.dt * u(2);
+            obj.x_F_act(:, t) = obj.x_F_act(:, t) + w_rel;
         end
             
-        function obj = generateControl(obj)
-            t = obj.curr_ind;
-            e = obj.x_F_act(:,t-1) - obj.x_F_des(:,t-1);
+        function generateControl(obj)
+            i = obj.curr_ind;
+            u_F_temp = zeros(length(obj.x_F_act(:, i-1))-1,1);
+            e = obj.x_F_act(:,i-1) - obj.x_F_des(:,i-1);
             e_x = e(1);
             e_y = e(2);
             e_psi = e(3);
             e_rho = norm(e(1:2));
             Beta = atan2(e_y, e_x);
-            obj.u_F(:,t) = obj.K_p(:,t) .* [e_rho;
+            
+            u_F_temp = obj.K_p(:,i) .* [e_rho;
                                     e_psi - Beta];
-            obj.u_F(1, t) = sign(obj.u_F(1, t)) * min(abs(obj.u_F(1, t)), obj.v_follower_max_thresh);
-            obj.u_F(2, t) = sign(obj.u_F(2, t)) * min(abs(obj.u_F(2, t)), obj.omega_follower_max_thresh);
-            
-            
+            u_F_temp(1) = sign(u_F_temp(1)) * min(abs(u_F_temp(1)), obj.v_follower_max_thresh);
+            u_F_temp(2) = sign(u_F_temp(2)) * min(abs(u_F_temp(2)), obj.omega_follower_max_thresh);
+            obj.u_F(:, i) = u_F_temp(:);
+%             t = obj.curr_ind;
+%             e = obj.x_F_act(:,t-1) - obj.x_F_des(:,t-1);
+%             e_x = e(1);
+%             e_y = e(2);
+%             e_psi = e(3);
+%             e_rho = norm(e(1:2));
+%             Beta = atan2(e_y, e_x);
+%             obj.u_F(:,t) = obj.K_p(:,t) .* [e_rho;
+%                                     e_psi - Beta];
+%             obj.u_F(1, t) = sign(obj.u_F(1, t)) * min(abs(obj.u_F(1, t)), obj.v_follower_max_thresh);
+%             obj.u_F(2, t) = sign(obj.u_F(2, t)) * min(abs(obj.u_F(2, t)), obj.omega_follower_max_thresh);
         end
     end
 end

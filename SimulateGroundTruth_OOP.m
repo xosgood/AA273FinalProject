@@ -13,7 +13,7 @@ p = 2; % number of dimensions of control input
 m = 3; % number of dimensions of measurement (leader's measurement of follower)
 
 %Run Time
-t_f = 200; %[sec]
+t_f = 1; %[sec]
 dt = 0.1;
 
 tspan = 0:dt:t_f;
@@ -46,11 +46,15 @@ y = zeros(m, N-1); % measurements
 
 % initial conditions
 x_L(:,1) = zeros(n_L, 1);
-x_F_des(:,1) = [-10; -10; deg2rad(0)]; %Bird
-x_F_act(:,1) = [-20; -20; deg2rad(45)];
+x_F_des(:,1) = [-10; 10; deg2rad(0)]; %Bird
+x_F_act(:,1) = [-20; 20; deg2rad(45)];
 
-follower_obj = Follower(n_F, t_f, dt, [-10; -10; deg2rad(0)], [-20; -20; deg2rad(45)], Q_rel);
-follower_obj = follower_obj.simulateFollower();
+
+follower_obj = Follower(n_F, t_f, dt, [-10; -10; deg2rad(0)], [-12; -12; deg2rad(5)], Q_rel);
+follower_obj1 = Follower(n_F, t_f, dt, [-10; 10; deg2rad(0)], [-12; 12; deg2rad(-5)], Q_rel);
+
+w_rel_arr = mvnrnd(zeros(follower_obj.n_F,1), follower_obj.Qtrue, follower_obj.numsteps-1)';
+
 %% simulate dynamics
 for i = 2:N
     % leader dynamics
@@ -58,9 +62,22 @@ for i = 2:N
     x_L(:,i) = f_abs(x_L(:,i-1), u_L(:,i-1), dt) + w; % leader dynamics propagation
     
     % follower dynamics
-    w_rel = mvnrnd(zeros(n_F,1), Q_rel)'; % process noise
+  
+    follower_obj.curr_ind = i;
+    follower_obj.desiredDynamics(); 
+    follower_obj.actualDynamics(w_rel_arr(:, i-1)); 
+    follower_obj.generateControl();
+    
+    
+    follower_obj1.curr_ind = i;
+    follower_obj1.desiredDynamics(); 
+    follower_obj1.actualDynamics(w_rel_arr(:, i-1)); 
+    follower_obj1.generateControl();
+    
+    w_rel = w_rel_arr(:, i-1);%mvnrnd(zeros(n_F,1), Q_rel)'; % process noise
     x_F_des(:,i) = f_rel(x_F_des(:,i-1), [0; 0], dt); % desired follower dynamics propagation
     x_F_act(:,i) = f_rel(x_F_act(:,i-1), u_F(:,i-1), dt) + w_rel; % actual follower dynamics propagation
+    
     
     % control law for follower
     e = x_F_act(:,i-1) - x_F_des(:,i-1);
@@ -74,12 +91,8 @@ for i = 2:N
     u_F(1,i) = sign(u_F(1,i)) * min(abs(u_F(1,i)), v_follower_max_thresh);
     u_F(2,i) = sign(u_F(2,i)) * min(abs(u_F(2,i)), omega_follower_max_thresh);
     
-    % measure (leader's measurments of followers)
-%     v = mvnrnd(zeros(m,1), R)'; % measurement noise
-%     y = g(x_F_act(:,i)) + v; % measure
-    
-    % EKF
-    
+    u_obj = follower_obj.u_F(:, i);
+    u_loc = u_F(:, i);   
 end
 
 x_F_des_global = x_L + x_F_des;
@@ -87,6 +100,10 @@ x_F_act_global = x_L + x_F_act;
 
 x_F_des_global1 = x_L + follower_obj.x_F_des;
 x_F_act_global1 = x_L + follower_obj.x_F_act;
+
+x_F_des_global2 = x_L + follower_obj1.x_F_des;
+x_F_act_global2 = x_L + follower_obj1.x_F_act;
+
 
 
 %% plotting
@@ -102,15 +119,52 @@ xlabel("x"); ylabel("y");
 title("Leader bird trajectory");
 
 % plot follower
-figure; grid on; hold on;
-plot(x_L(1,:), x_L(2,:))
-plot(x_F_des_global(1,:), x_F_des_global(2,:), '.');
-plot(x_F_act_global(1,:), x_F_act_global(2,:), 'o');
-plot(x_F_des_global(1,:), x_F_des_global(2,:), 'm.');
-plot(x_F_act_global(1,:), x_F_act_global(2,:), 'ko');
+figure; grid on; grid minor; hold on;
+plot(x_L(1,:), x_L(2,:), 'b-', 'LineWidth', 2)
+plot(x_F_des_global1(1,:), x_F_des_global1(2,:), 'r.');
+plot(x_F_act_global1(1,:), x_F_act_global1(2,:), 'o', 'MarkerSize', 10, 'color', [255, 165, 0]/255); %'MarkerFaceColor', [255, 165, 0]/255
+plot(x_F_des_global2(1,:), x_F_des_global2(2,:), 'g.');
+plot(x_F_act_global2(1,:), x_F_act_global2(2,:), 'mo', 'MarkerSize', 10); %'MarkerFaceColor', 'm'
 xlabel("x"); ylabel("y");
-title("Leader bird trajectory");
-legend("Leader","Follower desired","Follower actual");
+view([90 -90])
+title("Three Ship Formation Flying");
+legend("Leader", "Desired Right Side Follower", "Right Actual Follower", "Desired Left Side Follower", "Left Actual Follower");
+
+figure; 
+title("Bird Trajectories");
+subplot(2,1,1)
+hold on; grid on; grid minor;
+plot(tspan, x_F_des_global(1,:), 'b');
+plot(tspan, x_F_act_global(1,:), 'r');
+%plot(tspan, x_F_act_global1(1, :), 'g');
+ylabel("X Position");
+hold off;
+
+subplot(2,1,2);
+hold on; grid on; grid minor;
+plot(tspan, x_F_des_global(2,:), 'b');
+plot(tspan, x_F_act_global(2,:), 'r');
+plot(tspan, x_F_act_global1(2, :), 'g');
+ylabel("Y Position"); 
+xlabel("Time [s]");
+legend("Follower Desired", "Follower Actual", "OOP Actual", "Location", "South");
+hold off;
+
+% figure;
+% subplot(2,1,1)
+% plot(tspan, u_F(1,:), 'b', 'LineWidth', 1.5);
+% hold on; grid on; grid minor;
+% plot(tspan, follower_obj.u_F(1,:), 'r');
+% ylabel("Velocity Command");
+% hold off;
+% 
+% subplot(2,1,2)
+% plot(tspan, u_F(2,:), 'b', 'LineWidth', 1.5);
+% hold on; grid on; grid minor;
+% plot(tspan, follower_obj.u_F(2,:), 'r');
+% ylabel("Theta Command");
+% legend("Control", "OOP Cntrl", "Location", "Best");
+% hold off;
 
 
 %% functions
